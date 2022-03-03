@@ -13,23 +13,35 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import json
+from configparser import ConfigParser
+from pathlib import Path
 
-import httpx
-from test_fixtures import *
+import pytest
+import pytest_asyncio
+from simul.session import Requestor
+from simul.session import TokenSession
+
+pytest_plugins = ('pytest_asyncio',)
 
 
-def test_token_read(api_token: str):
-    assert api_token.startswith('lip_')
+@pytest.fixture
+def config() -> dict:
+    c = ConfigParser()
+    c.read(Path(__file__).parent / 'tests.ini')
+    return c['DEFAULT']
 
-@pytest.mark.asyncio
-async def test_token_session(token_session, api_token):
-    assert token_session.token == api_token
-    assert token_session.headers['Authorization'] == f'Bearer {api_token}'
 
-@pytest.mark.asyncio
-async def test_get_account(token_session, config):
-    response = await token_session.get(f'{config["api_url"]}api/account')
-    assert response.status_code == httpx.codes.OK
-    account = json.loads(response.text)
-    assert account['username'] == config['username']
+@pytest.fixture
+def api_token(config: ConfigParser) -> str:
+    return config['token']
+
+
+@pytest_asyncio.fixture
+async def token_session(api_token: str) -> TokenSession:
+    async with TokenSession(api_token) as ts:
+        yield ts
+
+
+@pytest.fixture
+def requestor(token_session, config):
+    return Requestor(token_session, config['api_url'])
