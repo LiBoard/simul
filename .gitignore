@@ -3,3 +3,4 @@ liboard.egg-info/
 poetry.lock
 dist/
 .coverage
+lichess.token
