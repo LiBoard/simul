@@ -15,7 +15,11 @@
 
 """Handles the actual communication with the API."""
 
+import urllib
 from httpx import AsyncClient
+from .formats import FormatHandler, JSON
+from berserk import utils
+from .endpoints import Endpoint
 
 
 class TokenSession(AsyncClient):
@@ -26,3 +30,26 @@ class TokenSession(AsyncClient):
         super().__init__()
         self.token = token
         self.headers['Authorization'] = f'Bearer {token}'
+
+
+class Requestor:
+    """Makes the actual requests."""
+
+    def __init__(self, session: AsyncClient, base_url: str = 'https://lichess.org/',
+                 default_fmt: FormatHandler = JSON):
+        """Initialize a new Requestor."""
+        self.session = session
+        self.base_url = base_url
+        self.default_fmt = default_fmt
+
+    async def request(self, ep: Endpoint):
+        """Make a request to an endpoint."""
+        fmt = ep.fmt or self.default_fmt
+        self.session.headers.update(fmt.headers)
+        url = urllib.parse.urljoin(self.base_url, ep.path)
+
+        if ep.stream:
+            pass
+        else:
+            response = await self.session.request(ep.method, url, *ep.args, **ep.kwargs)
+            return fmt.handle(response.text, ep.converter or utils.noop)

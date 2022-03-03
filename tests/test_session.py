@@ -20,7 +20,8 @@ import json
 from configparser import ConfigParser
 
 import pytest_asyncio
-from simul.session import TokenSession
+from simul.session import TokenSession, Requestor
+from simul.endpoints import Endpoint
 
 pytest_plugins = ('pytest_asyncio',)
 
@@ -58,4 +59,12 @@ async def test_get_account(token_session, config):
     response = await token_session.get(f'{config["api_url"]}api/account')
     assert response.status_code == httpx.codes.OK
     account = json.loads(response.text)
+    assert account['username'] == config['username']
+
+
+@pytest.mark.asyncio
+async def test_requestor(token_session, config):
+    endpoint = Endpoint('api/account')
+    r = Requestor(token_session, config['api_url'])
+    account = await r.request(endpoint)
     assert account['username'] == config['username']
