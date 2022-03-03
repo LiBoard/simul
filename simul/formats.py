@@ -82,15 +82,13 @@ class PgnHandler(FormatHandler):
         """Initialize a new PgnHandler."""
         super().__init__(mime_type='application/x-chess-pgn')
 
-    def handle(self, *args, **kwargs):
+    def handle(self, content, converter=utils.noop):
         """Handle the response content by returning the data.
 
         :param content: response content
-        :param func converter: function to handle field conversions
         :return: either all response data or an iterator of response data
         """
-        kwargs['converter'] = utils.noop  # disable conversions
-        return super().handle(*args, **kwargs)
+        return super().handle(content, converter=utils.noop)
 
 
 class TextHandler(FormatHandler):

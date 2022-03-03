@@ -22,6 +22,7 @@ from configparser import ConfigParser
 import pytest_asyncio
 from simul.session import TokenSession, Requestor
 from simul.endpoints import Endpoint
+from simul.formats import PGN
 
 from berserk import models
 
@@ -76,11 +77,21 @@ async def test_requestor(requestor, config):
     assert account['username'] == config['username']
 
 
+# TODO load username/ids from data file
 @pytest.mark.asyncio
 async def test_requestor_async(requestor):
     users = ['user1', 'user2', 'simul']
-    ep = Endpoint('api/users', method='POST', converter=models.User.convert, content=','.join(users))
+    ep = Endpoint('api/users', method='POST', converter=models.User.convert,
+                  content=','.join(users))
     accounts = await requestor.request(ep)
     assert len(accounts) == len(users)
     for acc in accounts:
         assert acc['username'] in users
+
+
+@pytest.mark.asyncio
+async def test_game_export(requestor):
+    id = 'V8aUuLJq'
+    ep = Endpoint(f'game/export/{id}', fmt=PGN)
+    game = await requestor.request(ep)
+    assert "4. Nxf3 Nf6 5. Bc4 Bg4 6. Ne5 Bxd1" in game
