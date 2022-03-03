@@ -23,6 +23,8 @@ import pytest_asyncio
 from simul.session import TokenSession, Requestor
 from simul.endpoints import Endpoint
 
+from berserk import models
+
 pytest_plugins = ('pytest_asyncio',)
 
 
@@ -62,9 +64,23 @@ async def test_get_account(token_session, config):
     assert account['username'] == config['username']
 
 
+@pytest.fixture
+def requestor(token_session, config):
+    return Requestor(token_session, config['api_url'])
+
+
 @pytest.mark.asyncio
-async def test_requestor(token_session, config):
+async def test_requestor(requestor, config):
     endpoint = Endpoint('api/account')
-    r = Requestor(token_session, config['api_url'])
-    account = await r.request(endpoint)
+    account = await requestor.request(endpoint)
     assert account['username'] == config['username']
+
+
+@pytest.mark.asyncio
+async def test_requestor_async(requestor):
+    users = ['user1', 'user2', 'simul']
+    ep = Endpoint('api/users', method='POST', converter=models.User.convert, content=','.join(users))
+    accounts = await requestor.request(ep)
+    assert len(accounts) == len(users)
+    for acc in accounts:
+        assert acc['username'] in users
