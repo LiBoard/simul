@@ -17,6 +17,7 @@
 import json
 
 from berserk import utils
+from httpx import Response
 
 
 class FormatHandler:
@@ -34,7 +35,7 @@ class FormatHandler:
         self.mime_type = mime_type
         self.headers = {'Accept': mime_type}
 
-    def handle(self, response, converter=utils.noop):
+    def handle(self, response: Response | str, converter=utils.noop):
         """Handle the response content by returning the data.
 
         :param response: response content
@@ -47,10 +48,9 @@ class FormatHandler:
         """Parse all data from a response.
 
         :param response: raw response
-        :type response: :class:`requests.Response`
         :return: response data
         """
-        return response.text
+        return response.text if isinstance(response, Response) else response
 
 
 class JsonHandler(FormatHandler):
@@ -63,34 +63,13 @@ class JsonHandler(FormatHandler):
         """Initialize a new JsonHandler."""
         super().__init__(mime_type=mime_type)
 
-    def parse(self, response):
+    def parse(self, response: Response | str):
         """Parse all JSON data from a response.
 
         :param response: raw response
-        :type response: :class:`requests.Response`
         :return: response data
-        :rtype: JSON
         """
-        return response.json()
-
-
-class NdJsonHandler(FormatHandler):
-    """Handle ndjson data line by line.
-
-    :param str mime_type: the MIME type for the format
-    """
-
-    def __init__(self, mime_type):
-        """Initialize a new NdJsonHandler."""
-        super().__init__(mime_type=mime_type)
-
-    def parse(self, line):
-        """Parse the line.
-
-        :param line: A line of ndjson (aka a JSON object)
-        :return: parsed line
-        """
-        return json.loads(line)
+        return response.json() if isinstance(response, Response) else json.loads(response)
 
 
 class PgnHandler(FormatHandler):
@@ -119,6 +98,6 @@ class TextHandler(FormatHandler):
 
 TEXT = TextHandler()
 JSON = JsonHandler(mime_type='application/json')
-NDJSON = NdJsonHandler(mime_type='application/x-ndjson')
+NDJSON = JsonHandler(mime_type='application/x-ndjson')
 LIJSON = JsonHandler(mime_type='application/vnd.lichess.v3+json')
 PGN = PgnHandler()
