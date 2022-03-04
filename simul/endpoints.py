@@ -22,7 +22,7 @@ class Endpoint:
     """Represents an API endpoint."""
 
     def __init__(self, path: str, stream: bool = False, method: str = 'GET',
-                 fmt: FormatHandler = None, converter=None, *args, **kwargs):
+                 fmt: FormatHandler = None, converter=None):
         """
         Initialize a new Endpoint.
 
@@ -35,5 +35,7 @@ class Endpoint:
         self.method = method
         self.fmt = fmt
         self.converter = converter
-        self.args = args
-        self.kwargs = kwargs
+
+
+class _Namespace:
+    pass

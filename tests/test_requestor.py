@@ -14,7 +14,7 @@
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from berserk import models
-from test_fixtures import *  #
+from test_fixtures import *
 from simul.endpoints import Endpoint
 from simul.formats import PGN, LIJSON
 
@@ -30,9 +30,8 @@ async def test_json(requestor, config):
 @pytest.mark.asyncio
 async def test_post(requestor):
     users = ['user1', 'user2', 'simul']
-    ep = Endpoint('api/users', method='POST', converter=models.User.convert,
-                  content=','.join(users))
-    accounts = await anext(requestor.request(ep))
+    ep = Endpoint('api/users', method='POST', converter=models.User.convert)
+    accounts = await anext(requestor.request(ep, content=','.join(users)))
     assert len(accounts) == len(users)
     for acc in accounts:
         assert acc['username'] in users
@@ -40,8 +39,8 @@ async def test_post(requestor):
 
 @pytest.mark.asyncio
 async def test_pgn(requestor):
-    id = 'V8aUuLJq'
-    ep = Endpoint(f'game/export/{id}', fmt=PGN)
+    game_id = 'V8aUuLJq'
+    ep = Endpoint(f'game/export/{game_id}', fmt=PGN)
     game = await anext(requestor.request(ep))
     assert "4. Nxf3 Nf6 5. Bc4 Bg4 6. Ne5 Bxd1" in game
 
