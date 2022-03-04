@@ -15,7 +15,7 @@
 
 """Handles the actual communication with the API."""
 
-import urllib
+from urllib.parse import urljoin
 from httpx import AsyncClient
 from .formats import FormatHandler, JSON
 from berserk import utils
@@ -45,13 +45,13 @@ class Requestor:
     async def request(self, ep: Endpoint):
         """Make a request to an endpoint."""
         fmt = ep.fmt or self.default_fmt
-        self.session.headers.update(fmt.headers)
-        url = urllib.parse.urljoin(self.base_url, ep.path)
+        self.session.headers.update(fmt.headers)  # TODO side effects make bugs likely
+        url = urljoin(self.base_url, ep.path)
 
         if ep.stream:
             async with self.session.stream(ep.method, url, *ep.args, **ep.kwargs) as response:
                 async for line in response.aiter_lines():
-                    yield fmt.handle(response)
+                    yield fmt.handle(line)
         else:
             response = await self.session.request(ep.method, url, *ep.args, **ep.kwargs)
             yield fmt.handle(response, ep.converter or utils.noop)
