@@ -16,7 +16,7 @@
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import json
 
-from berserk import utils
+from . import utils
 from httpx import Response
 
 

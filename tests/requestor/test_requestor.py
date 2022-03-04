@@ -13,7 +13,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from berserk import models
+from simul import models
 from tests.test_fixtures import *
 from simul.endpoints import Endpoint
 from simul.formats import PGN, LIJSON

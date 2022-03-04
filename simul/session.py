@@ -17,7 +17,7 @@
 
 from urllib.parse import urljoin
 
-from berserk import utils
+from . import utils
 from httpx import AsyncClient
 
 from .endpoints import Endpoint

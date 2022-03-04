@@ -19,7 +19,7 @@ from time import time as now
 from simul.session import Requestor
 from simul.formats import TEXT, PGN, JSON, LIJSON, NDJSON
 from simul.endpoints import Endpoint, PostEndpoint, StreamEndpoint, StreamPostEndpoint
-from berserk import models
+from simul import models
 from httpx import AsyncClient
 
 API_URL = 'https://lichess.org/'
@@ -214,7 +214,7 @@ class _Users(_BaseClient):
         :rtype: list
         """
         return await Endpoint('api/users', method='POST', converter=models.User.convert)(self._r)(
-            data=','.join(usernames))
+            content=','.join(usernames))
 
     async def get_live_streamers(self):
         """Get basic information about currently streaming users.

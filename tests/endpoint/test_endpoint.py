@@ -15,7 +15,7 @@
 
 from ..test_fixtures import *
 from simul.endpoints import Endpoint, PostEndpoint
-from berserk import models
+from simul import models
 from simul.formats import *
 
 
