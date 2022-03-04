@@ -72,7 +72,6 @@ class Client(_BaseClient):
 
     def __init__(self, session: AsyncClient = None, base_url=None, pgn_as_default=False):
         """Intialize a new Client."""
-        session = session or AsyncClient
         super().__init__(session, base_url)
         self.account = _Account(session, base_url)
         self.users = _Users(session, base_url)
@@ -105,7 +104,7 @@ class _Account(_BaseClient):
         :return: email address of the authenticated user
         :rtype: str
         """
-        return (await Endpoint('api/account/mail')(self._r)())['email']
+        return (await Endpoint('api/account/email')(self._r)())['email']
 
     async def get_preferences(self):
         """Get your account preferences.
