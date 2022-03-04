@@ -238,14 +238,14 @@ class _Users(_BaseClient):
 class _Teams(_BaseClient):
     """Client for team-related endpoints."""
 
-    async def get_members(self, team_id):
+    def get_members(self, team_id):
         """Get members of a team.
 
         :param str team_id: ID of a team
         :return: users on the given team
         :rtype: iter
         """
-        return await Endpoint(f'team/{team_id}/users', True, fmt=NDJSON,
+        return StreamEndpoint(f'api/team/{team_id}/users', fmt=NDJSON,
                               converter=models.User.convert)(self._r)()
 
     async def join(self, team_id):

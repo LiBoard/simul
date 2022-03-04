@@ -52,8 +52,10 @@ class Requestor:
 
         if ep.stream:
             async with self.session.stream(ep.method, url, *args, **kwargs) as response:
+                response.raise_for_status()
                 async for line in response.aiter_lines():
                     yield fmt.handle(line)
         else:
             response = await self.session.request(ep.method, url, *args, **kwargs)
+            response.raise_for_status()
             yield fmt.handle(response, ep.converter or utils.noop)
