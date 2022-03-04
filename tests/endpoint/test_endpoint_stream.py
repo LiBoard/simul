@@ -13,9 +13,22 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import simul.clients
-from test_fixtures import *
+from ..test_fixtures import *
+from simul.endpoints import StreamEndpoint
+from simul.formats import *
 
 
-def test_client(client, api_token):
-    assert client._r.session.token == api_token
+@pytest.mark.asyncio
+async def test_games_by_user(requestor, event_tag_re, game_id_re):
+    ep = StreamEndpoint(f'api/games/user/user1', fmt=PGN)
+    count = 0
+    async for line in ep(requestor)():
+        if event_tag_re.match(line):
+            count += 1
+    assert count >= 10
+
+    ep.fmt = NDJSON
+    async for game in ep(requestor)():
+        assert game_id_re.match(game['id'])
+        count -= 1
+    assert count == 0

@@ -13,26 +13,9 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from test_fixtures import *
-from simul.endpoints import Endpoint
-from simul.formats import PGN, NDJSON
+import simul.clients
+from ..test_fixtures import *
 
 
-@pytest.mark.asyncio
-async def test_games_by_user(requestor, event_tag_re):
-    ep = Endpoint(f'api/games/user/user1', stream=True, fmt=PGN)
-    count = 0
-    async for line in requestor.request(ep):
-        if event_tag_re.match(line):
-            count += 1
-    assert count >= 10
-
-
-@pytest.mark.asyncio
-async def test_games_by_user_ndjson(requestor, game_id_re):
-    ep = Endpoint(f'api/games/user/user1', stream=True, fmt=NDJSON)
-    count = 0
-    async for game in requestor.request(ep):
-        assert game_id_re.match(game['id'])
-        count += 1
-    assert count >= 10
+def test_client(client, api_token):
+    assert client._r.session.token == api_token

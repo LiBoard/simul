@@ -16,7 +16,7 @@
 import json
 
 import httpx
-from test_fixtures import *
+from .test_fixtures import *
 
 
 def test_token_read(api_token: str):

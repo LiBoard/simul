@@ -14,7 +14,7 @@
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from berserk import models
-from test_fixtures import *
+from tests.test_fixtures import *
 from simul.endpoints import Endpoint
 from simul.formats import PGN, LIJSON
 

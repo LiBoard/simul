@@ -13,22 +13,26 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from test_fixtures import *
-from simul.endpoints import StreamEndpoint
-from simul.formats import *
+from tests.test_fixtures import *
+from simul.endpoints import Endpoint
+from simul.formats import PGN, NDJSON
 
 
 @pytest.mark.asyncio
-async def test_games_by_user(requestor, event_tag_re, game_id_re):
-    ep = StreamEndpoint(f'api/games/user/user1', fmt=PGN)
+async def test_games_by_user(requestor, event_tag_re):
+    ep = Endpoint(f'api/games/user/user1', stream=True, fmt=PGN)
     count = 0
-    async for line in ep(requestor)():
+    async for line in requestor.request(ep):
         if event_tag_re.match(line):
             count += 1
     assert count >= 10
 
-    ep.fmt = NDJSON
-    async for game in ep(requestor)():
+
+@pytest.mark.asyncio
+async def test_games_by_user_ndjson(requestor, game_id_re):
+    ep = Endpoint(f'api/games/user/user1', stream=True, fmt=NDJSON)
+    count = 0
+    async for game in requestor.request(ep):
         assert game_id_re.match(game['id'])
-        count -= 1
-    assert count == 0
+        count += 1
+    assert count >= 10
