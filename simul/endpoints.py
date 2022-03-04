@@ -16,22 +16,23 @@
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from .formats import FormatHandler
+from dataclasses import dataclass
+from typing import Callable
 
 
+@dataclass
 class Endpoint:
     """Represents an API endpoint."""
 
-    def __init__(self, path: str, stream: bool = False, method: str = 'GET',
-                 fmt: FormatHandler = None, converter=None):
-        """
-        Initialize a new Endpoint.
+    path: str
+    stream: bool = False
+    method: str = 'GET'
+    fmt: FormatHandler = None
+    converter: Callable = None
 
-        :param path: The path of the endpoint.
-        :param stream: Whether the response should be streamed.
-        :param method: The request method (HTTP verb)
-        """
-        self.path = path
-        self.stream = stream
-        self.method = method
-        self.fmt = fmt
-        self.converter = converter
+
+@dataclass
+class PostEndpoint(Endpoint):
+    """API Endpoint accessed with POST."""
+
+    method: str = 'POST'
