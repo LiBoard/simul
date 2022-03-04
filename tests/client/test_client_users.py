@@ -61,3 +61,10 @@ async def test_by_id(client):
 @pytest.mark.asyncio
 async def test_live_streamers(client):
     assert len(await client.users.get_live_streamers()) == 0
+
+
+@pytest.mark.asyncio
+async def test_rating_history(client):
+    hist = await client.users.get_rating_history('user1')
+    for perf in hist:
+        assert 'points' in perf
