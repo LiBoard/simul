@@ -22,6 +22,7 @@ import pytest_asyncio
 from simul.session import Requestor
 from simul.session import TokenSession
 from simul.formats import JSON
+from simul.clients import Client
 
 pytest_plugins = ('pytest_asyncio',)
 
@@ -57,3 +58,8 @@ def event_tag_re():
 @pytest.fixture
 def game_id_re():
     return re.compile(r'^[A-z0-9]{8}$')
+
+
+@pytest.fixture
+def client(token_session, config):
+    return Client(token_session, config['api_url'])
