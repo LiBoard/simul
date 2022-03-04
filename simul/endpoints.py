@@ -35,7 +35,3 @@ class Endpoint:
         self.method = method
         self.fmt = fmt
         self.converter = converter
-
-
-class _Namespace:
-    pass
