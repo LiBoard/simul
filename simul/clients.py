@@ -255,7 +255,7 @@ class _Teams(_BaseClient):
         :return: success
         :rtype: bool
         """
-        return (await PostEndpoint(f'team/{team_id}/join')(self._r))['ok']
+        return (await PostEndpoint(f'team/{team_id}/join')(self._r)())['ok']
 
     async def leave(self, team_id):
         """Leave a team.
@@ -264,7 +264,7 @@ class _Teams(_BaseClient):
         :return: success
         :rtype: bool
         """
-        return (await PostEndpoint(f'team/{team_id}/quit')(self._r))['ok']
+        return (await PostEndpoint(f'team/{team_id}/quit')(self._r)())['ok']
 
     async def kick_member(self, team_id, user_id):
         """Kick a member out of your team.
@@ -274,7 +274,7 @@ class _Teams(_BaseClient):
         :return: success
         :rtype: bool
         """
-        return (await PostEndpoint(f'team/{team_id}/kick/{user_id}')(self._r))['ok']
+        return (await PostEndpoint(f'team/{team_id}/kick/{user_id}')(self._r)())['ok']
 
 
 class _Games(_OptionalPgnClient):

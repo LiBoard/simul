@@ -22,3 +22,20 @@ async def test_members(client):
     async for m in client.teams.get_members('simul-test'):
         c += 1
     assert c >= 1
+
+
+@pytest.mark.asyncio
+async def test_join(client):
+    await client.teams.join('simul-test')
+    success = False
+    async for m in client.teams.get_members('simul-test'):
+        if m['username'] == 'simul':
+            success = True
+            break
+    assert success
+    await client.teams.leave('simul-test')
+    async for m in client.teams.get_members('simul-test'):
+        if m['username'] == 'simul':
+            success = False
+            break
+    assert success
