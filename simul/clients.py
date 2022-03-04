@@ -1,3 +1,5 @@
+"""User-facing methods to make API requests."""
+
 #  Copyright (C) 2022  Philipp Leclercq
 #
 #  This program is free software: you can redistribute it and/or modify
@@ -13,21 +15,22 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+from time import time as now
 from simul.session import Requestor
-from simul.formats import *
-from simul.endpoints import Endpoint
+from simul.formats import TEXT, PGN, JSON, LIJSON, NDJSON
+from simul.endpoints import Endpoint, PostEndpoint, StreamEndpoint, StreamPostEndpoint
 from berserk import models
 from httpx import AsyncClient
 
 API_URL = 'https://lichess.org/'
 
 
-class BaseClient:
+class _BaseClient:
     def __init__(self, session: AsyncClient, base_url: str | None = None):
         self._r = Requestor(session, base_url or API_URL, default_fmt=JSON)
 
 
-class FmtClient(BaseClient):
+class _OptionalPgnClient(_BaseClient):
     """Client that can return PGN or not."""
 
     def __init__(self, session, base_url=None, pgn_as_default=False):
@@ -39,7 +42,7 @@ class FmtClient(BaseClient):
         return as_pgn if as_pgn is not None else self.pgn_as_default
 
 
-class Client(BaseClient):
+class Client(_BaseClient):
     """Main touchpoint for the API.
 
     All endpoints are namespaced into the clients below:
@@ -68,23 +71,24 @@ class Client(BaseClient):
     """
 
     def __init__(self, session: AsyncClient = None, base_url=None, pgn_as_default=False):
+        """Intialize a new Client."""
         session = session or AsyncClient
         super().__init__(session, base_url)
-        self.account = Account(session, base_url)
-        self.users = Users(session, base_url)
-        self.teams = Teams(session, base_url)
-        self.games = Games(session, base_url, pgn_as_default=pgn_as_default)
-        self.challenges = Challenges(session, base_url)
-        self.board = Board(session, base_url)
-        self.bots = Bots(session, base_url)
-        self.tournaments = Tournaments(session, base_url,
-                                       pgn_as_default=pgn_as_default)
-        self.broadcasts = Broadcasts(session, base_url)
-        self.simuls = Simuls(session, base_url)
-        self.studies = Studies(session, base_url)
+        self.account = _Account(session, base_url)
+        self.users = _Users(session, base_url)
+        self.teams = _Teams(session, base_url)
+        self.games = _Games(session, base_url, pgn_as_default=pgn_as_default)
+        self.challenges = _Challenges(session, base_url)
+        self.board = _Board(session, base_url)
+        self.bots = _Bots(session, base_url)
+        self.tournaments = _Tournaments(session, base_url,
+                                        pgn_as_default=pgn_as_default)
+        self.broadcasts = _Broadcasts(session, base_url)
+        self.simuls = _Simuls(session, base_url)
+        self.studies = _Studies(session, base_url)
 
 
-class Account(BaseClient):
+class _Account(_BaseClient):
     """Client for account-related endpoints."""
 
     async def get(self):
@@ -93,8 +97,7 @@ class Account(BaseClient):
         :return: public information about the authenticated user
         :rtype: dict
         """
-        return await anext(
-            self._r.request(Endpoint('api/account', converter=models.Account.convert)))
+        return await Endpoint('api/account', converter=models.Account.convert)(self._r)()
 
     async def get_email(self):
         """Get your email address.
@@ -102,7 +105,7 @@ class Account(BaseClient):
         :return: email address of the authenticated user
         :rtype: str
         """
-        return (await anext(self._r.request(Endpoint('api/account/mail'))))['email']
+        return (await Endpoint('api/account/mail')(self._r)())['email']
 
     async def get_preferences(self):
         """Get your account preferences.
@@ -110,8 +113,7 @@ class Account(BaseClient):
         :return: preferences of the authenticated user
         :rtype: dict
         """
-        path = 'api/account/preferences'
-        return (await anext(self._r.request(Endpoint('api/account/preferences'))))['prefs']
+        return (await Endpoint('api/account/preferences')(self._r)())['prefs']
 
     async def get_kid_mode(self):
         """Get your kid mode status.
@@ -119,7 +121,7 @@ class Account(BaseClient):
         :return: current kid mode status
         :rtype: bool
         """
-        return (await anext(self._r.request(Endpoint('api/account/kid'))))['kid']
+        return (await Endpoint('api/account/kid')(self._r)())['kid']
 
     async def set_kid_mode(self, value):
         """Set your kid mode status.
@@ -128,9 +130,7 @@ class Account(BaseClient):
         :return: success
         :rtype: bool
         """
-        ep = Endpoint('api/account/kid', method='POST')
-        params = {'v': value}
-        return (await anext(self._r.request(ep, params=params)))['ok']
+        return (await PostEndpoint('api/account/kid')(self._r)(params={'v': value}))['ok']
 
     async def upgrade_to_bot(self):
         """Upgrade your account to a bot account.
@@ -141,24 +141,22 @@ class Account(BaseClient):
         :return: success
         :rtype: bool
         """
-        return (await anext(
-            self._r.request(Endpoint('api/bot/account/upgrade', method='POST'))))['ok']
+        return (await PostEndpoint('api/bot/account/upgrade')(self._r)())['ok']
 
 
-class Users(BaseClient):
+class _Users(_BaseClient):
     """Client for user-related endpoints."""
 
-    async def get_puzzle_activity(self, max=None):
+    def get_puzzle_activity(self, max=None):
         """Stream puzzle activity history starting with the most recent.
 
         :param int max: maximum number of entries to stream
         :return: puzzle activity history
         :rtype: iter
         """
-        ep = Endpoint('api/user/puzzle-activity', True, fmt=NDJSON,
-                      converter=models.PuzzleActivity.convert)
-        params = {'max': max}
-        return self._r.request(ep, params)
+        return StreamEndpoint('api/user/puzzle-activity', fmt=NDJSON,
+                              converter=models.PuzzleActivity.convert)(self._r)(
+            params={'max': max})
 
     async def get_realtime_statuses(self, *user_ids):
         """Get the online, playing, and streaming statuses of players.
@@ -169,8 +167,7 @@ class Users(BaseClient):
         :return: statuses of given players
         :rtype: list
         """
-        params = {'ids': ','.join(user_ids)}
-        return await anext(self._r.request(Endpoint('api/users/status'), params=params))
+        return await Endpoint('api/users/status')(self._r)(params={'ids': ','.join(user_ids)})
 
     async def get_all_top_10(self):
         """Get the top 10 players for each speed and variant.
@@ -178,7 +175,7 @@ class Users(BaseClient):
         :return: top 10 players in each speed and variant
         :rtype: dict
         """
-        return await anext(self._r.request(Endpoint('player', fmt=LIJSON)))
+        return await Endpoint('player', fmt=LIJSON)(self._r)()
 
     async def get_leaderboard(self, perf_type, count=10):
         """Get the leaderboard for one speed or variant.
@@ -189,8 +186,7 @@ class Users(BaseClient):
         :return: top players for one speed or variant
         :rtype: list
         """
-        ep = Endpoint(f'player/top/{count}/{perf_type}', fmt=LIJSON)
-        return (await anext(self._r.request(ep)))['users']
+        return (await Endpoint(f'player/top/{count}/{perf_type}', fmt=LIJSON)(self._r)())['users']
 
     async def get_public_data(self, username):
         """Get the public data for a user.
@@ -199,8 +195,7 @@ class Users(BaseClient):
         :return: public data available for the given user
         :rtype: dict
         """
-        return await anext(
-            self._r.request(Endpoint(f'api/user/{username}', converter=models.User.convert)))
+        return await Endpoint(f'api/user/{username}', converter=models.User.convert)(self._r)()
 
     async def get_activity_feed(self, username):
         """Get the activity feed of a user.
@@ -209,8 +204,8 @@ class Users(BaseClient):
         :return: activity feed of the given user
         :rtype: list
         """
-        return await anext(self._r.request(
-            Endpoint(f'api/user/{username}/activity', converter=models.Activity.convert)))
+        return await Endpoint(f'api/user/{username}/activity', converter=models.Activity.convert)(
+            self._r)()
 
     async def get_by_id(self, *usernames):
         """Get multiple users by their IDs.
@@ -219,8 +214,8 @@ class Users(BaseClient):
         :return: user data for the given usernames
         :rtype: list
         """
-        ep = Endpoint('api/users', method='POST', converter=models.User.convert)
-        return await anext(self._r.request(ep, data=','.join(usernames)))
+        return await Endpoint('api/users', method='POST', converter=models.User.convert)(self._r)(
+            data=','.join(usernames))
 
     async def get_live_streamers(self):
         """Get basic information about currently streaming users.
@@ -228,29 +223,27 @@ class Users(BaseClient):
         :return: users currently streaming a game
         :rtype: list
         """
-        return await anext(self._r.request(Endpoint('streamer/live')))
+        return await Endpoint('streamer/live')(self._r)()
 
-    async def get_users_followed(self, username):
+    def get_users_followed(self, username):
         """Stream users followed by a user.
 
         :param str username: a username
         :return: iterator over the users the given user follows
         :rtype: iter
         """
-        ep = Endpoint(f'/api/user/{username}/following', True, fmt=NDJSON,
-                      converter=models.User.convert)
-        return self._r.request(ep)
+        return StreamEndpoint(f'/api/user/{username}/following', fmt=NDJSON,
+                              converter=models.User.convert)(self._r)()
 
-    async def get_users_following(self, username):
+    def get_users_following(self, username):
         """Stream users who follow a user.
 
         :param str username: a username
         :return: iterator over the users that follow the given user
         :rtype: iter
         """
-        ep = Endpoint(f'/api/user/{username}/followers', True, fmt=NDJSON,
-                      converter=models.User.convert)
-        return self._r.request(ep)
+        return StreamEndpoint(f'/api/user/{username}/followers', fmt=NDJSON,
+                              converter=models.User.convert)(self._r)()
 
     async def get_rating_history(self, username):
         """Get the rating history of a user.
@@ -259,12 +252,11 @@ class Users(BaseClient):
         :return: rating history for all game types
         :rtype: list
         """
-        ep = Endpoint(f'/api/user/{username}/rating-history',
-                      converter=models.RatingHistory.convert)
-        return await anext(self._r.request(ep))
+        return await Endpoint(f'/api/user/{username}/rating-history',
+                              converter=models.RatingHistory.convert)(self._r)()
 
 
-class Teams(BaseClient):
+class _Teams(_BaseClient):
     """Client for team-related endpoints."""
 
     async def get_members(self, team_id):
@@ -274,8 +266,8 @@ class Teams(BaseClient):
         :return: users on the given team
         :rtype: iter
         """
-        ep = Endpoint(f'team/{team_id}/users', True, fmt=NDJSON, converter=models.User.convert)
-        return self._r.request(ep)
+        return await Endpoint(f'team/{team_id}/users', True, fmt=NDJSON,
+                              converter=models.User.convert)(self._r)()
 
     async def join(self, team_id):
         """Join a team.
@@ -284,7 +276,7 @@ class Teams(BaseClient):
         :return: success
         :rtype: bool
         """
-        return (await anext(self._r.request(Endpoint(f'team/{team_id}/join', method='POST'))))['ok']
+        return (await PostEndpoint(f'team/{team_id}/join')(self._r))['ok']
 
     async def leave(self, team_id):
         """Leave a team.
@@ -293,7 +285,7 @@ class Teams(BaseClient):
         :return: success
         :rtype: bool
         """
-        return (await anext(self._r.request(Endpoint(f'team/{team_id}/quit', method='POST'))))['ok']
+        return (await PostEndpoint(f'team/{team_id}/quit')(self._r))['ok']
 
     async def kick_member(self, team_id, user_id):
         """Kick a member out of your team.
@@ -303,11 +295,10 @@ class Teams(BaseClient):
         :return: success
         :rtype: bool
         """
-        return (await anext(
-            self._r.request(Endpoint(f'team/{team_id}/kick/{user_id}', method='POST'))))['ok']
+        return (await PostEndpoint(f'team/{team_id}/kick/{user_id}')(self._r))['ok']
 
 
-class Games(FmtClient):
+class _Games(_OptionalPgnClient):
     """Client for games-related endpoints."""
 
     async def export(self, game_id, as_pgn=None, moves=None, tags=None, clocks=None,
@@ -325,8 +316,6 @@ class Games(FmtClient):
         :param bool literate: whether to include literate the PGN
         :return: exported game, as JSON or PGN
         """
-        ep = Endpoint(f'game/export/{game_id}', fmt=PGN if self._use_pgn(as_pgn) else JSON,
-                      converter=models.Game.convert)
         params = {
             'moves': moves,
             'tags': tags,
@@ -335,12 +324,13 @@ class Games(FmtClient):
             'opening': opening,
             'literate': literate,
         }
-        return await anext(self._r.request(ep, params))
+        return await Endpoint(f'game/export/{game_id}', fmt=PGN if self._use_pgn(as_pgn) else JSON,
+                              converter=models.Game.convert)(self._r)(params=params)
 
-    async def export_by_player(self, username, as_pgn=None, since=None, until=None,
-                               max=None, vs=None, rated=None, perf_type=None,
-                               color=None, analysed=None, moves=None, tags=None,
-                               evals=None, opening=None):
+    def export_by_player(self, username, as_pgn=None, since=None, until=None,
+                         max=None, vs=None, rated=None, perf_type=None,
+                         color=None, analysed=None, moves=None, tags=None,
+                         evals=None, opening=None):
         """Get games by player.
 
         :param str username: which player's games to return
@@ -365,8 +355,6 @@ class Games(FmtClient):
         :param bool literate: whether to include literate the PGN
         :return: iterator over the exported games, as JSON or PGN
         """
-        ep = Endpoint(f'api/games/user/{username}', True,
-                      fmt=PGN if self._use_pgn(as_pgn) else NDJSON, converter=models.Game.convert)
         params = {
             'since': since,
             'until': until,
@@ -381,10 +369,12 @@ class Games(FmtClient):
             'evals': evals,
             'opening': opening,
         }
-        return self._r.request(ep, params)
+        return StreamEndpoint(f'api/games/user/{username}',
+                              fmt=PGN if self._use_pgn(as_pgn) else NDJSON,
+                              converter=models.Game.convert)(self._r)(params=params)
 
-    async def export_multi(self, *game_ids, as_pgn=None, moves=None, tags=None,
-                           clocks=None, evals=None, opening=None):
+    def export_multi(self, *game_ids, as_pgn=None, moves=None, tags=None,
+                     clocks=None, evals=None, opening=None):
         """Get multiple games by ID.
 
         :param game_ids: one or more game IDs to export
@@ -397,8 +387,6 @@ class Games(FmtClient):
         :param bool opening: whether to include the opening name
         :return: iterator over the exported games, as JSON or PGN
         """
-        ep = Endpoint('games/export/_ids', True, 'POST', PGN if self._use_pgn(as_pgn) else NDJSON,
-                      models.Game.convert)
         params = {
             'moves': moves,
             'tags': tags,
@@ -407,9 +395,12 @@ class Games(FmtClient):
             'opening': opening,
         }
         payload = ','.join(game_ids)
-        return self._r.request(ep, params=params, content=payload)
+        return StreamPostEndpoint('games/export/_ids',
+                                  fmt=PGN if self._use_pgn(as_pgn) else NDJSON,
+                                  converter=models.Game.convert)(self._r)(params=params,
+                                                                          content=payload)
 
-    async def get_among_players(self, *usernames):
+    def get_among_players(self, *usernames):
         """Get the games currently being played among players.
 
         Note this will not includes games where only one player is in the given
@@ -418,9 +409,9 @@ class Games(FmtClient):
         :param usernames: two or more usernames
         :return: iterator over all games played among the given players
         """
-        ep = Endpoint('api/stream/games-by-users', True, 'POST', NDJSON, models.Game.convert)
         payload = ','.join(usernames)
-        return self._r.request(ep, content=payload)
+        return StreamPostEndpoint('api/stream/games-by-users', fmt=NDJSON,
+                                  converter=models.Game.convert)(self._r)(content=payload)
 
     # move this to Account?
     async def get_ongoing(self, count=10):
@@ -430,10 +421,8 @@ class Games(FmtClient):
         :return: some number of currently ongoing games
         :rtype: list
         """
-        path = 'api/account/playing'
         params = {'nb': count}
-        return (await anext(
-            self._r.request(Endpoint('api/account/playing'), params=params)))['nowPlaying']
+        return (await Endpoint('api/account/playing')(self._r)(params=params))['nowPlaying']
 
     async def get_tv_channels(self):
         """Get basic information about the best games being played.
@@ -441,10 +430,10 @@ class Games(FmtClient):
         :return: best ongoing games in each speed and variant
         :rtype: dict
         """
-        return await anext(self._r.request(Endpoint('tv/channels')))
+        return await Endpoint('tv/channels')(self._r)()
 
 
-class Challenges(BaseClient):
+class _Challenges(_BaseClient):
     """Client for challenge-related endpoints."""
 
     async def create(self, username, rated, clock_limit=None, clock_increment=None,
@@ -466,8 +455,6 @@ class Challenges(BaseClient):
         :return: challenge data
         :rtype: dict
         """
-        ep = Endpoint(f'api/challenge/{username}', method='POST',
-                      converter=models.Tournament.convert)
         payload = {
             'rated': rated,
             'clock.limit': clock_limit,
@@ -477,7 +464,9 @@ class Challenges(BaseClient):
             'variant': variant,
             'fen': position,
         }
-        return await anext(self._r.request(ep, json=payload))
+        return await PostEndpoint(f'api/challenge/{username}',
+                                  converter=models.Tournament.convert)(
+            self._r)(json=payload)
 
     async def create_with_accept(self, username, rated, token, clock_limit=None,
                                  clock_increment=None, days=None, color=None,
@@ -504,8 +493,6 @@ class Challenges(BaseClient):
         :return: game data
         :rtype: dict
         """
-        ep = Endpoint(f'api/challenge/{username}', method='POST',
-                      converter=models.Tournament.convert)
         payload = {
             'rated': rated,
             'acceptByToken': token,
@@ -516,7 +503,9 @@ class Challenges(BaseClient):
             'variant': variant,
             'fen': position,
         }
-        return await anext(self._r.request(ep, json=payload))
+        return await PostEndpoint(f'api/challenge/{username}',
+                                  converter=models.Tournament.convert)(
+            self._r)(json=payload)
 
     async def create_ai(self, level=8, clock_limit=None, clock_increment=None,
                         days=None, color=None, variant=None, position=None):
@@ -536,7 +525,6 @@ class Challenges(BaseClient):
         :return: success indicator
         :rtype: bool
         """
-        ep = Endpoint(f'api/challenge/ai', method='POST', converter=models.Tournament.convert)
         payload = {
             'level': level,
             'clock.limit': clock_limit,
@@ -546,7 +534,8 @@ class Challenges(BaseClient):
             'variant': variant,
             'fen': position,
         }
-        return await anext(self._r.request(ep, json=payload))
+        return await PostEndpoint('api/challenge/ai', converter=models.Tournament.convert)(
+            self._r)(json=payload)
 
     async def create_open(self, clock_limit=None, clock_increment=None,
                           variant=None, position=None):
@@ -562,14 +551,14 @@ class Challenges(BaseClient):
         :return: challenge data
         :rtype: dict
         """
-        ep = Endpoint(f'api/challenge/open', method='POST', converter=models.Tournament.convert)
         payload = {
             'clock.limit': clock_limit,
             'clock.increment': clock_increment,
             'variant': variant,
             'fen': position,
         }
-        return await anext(self._r.request(ep, json=payload))
+        return await PostEndpoint('api/challenge/open', converter=models.Tournament.convert)(
+            self._r)(json=payload)
 
     async def accept(self, challenge_id):
         """Accept an incoming challenge.
@@ -578,8 +567,7 @@ class Challenges(BaseClient):
         :return: success indicator
         :rtype: bool
         """
-        ep = Endpoint(f'api/challenge/{challenge_id}/accept', method='POST')
-        return (await anext(self._r.request(ep)))['ok']
+        return (await PostEndpoint(f'api/challenge/{challenge_id}/accept')(self._r)())['ok']
 
     async def decline(self, challenge_id):
         """Decline an incoming challenge.
@@ -588,5 +576,464 @@ class Challenges(BaseClient):
         :return: success indicator
         :rtype: bool
         """
-        ep = Endpoint(f'api/challenge/{challenge_id}/decline', method='POST')
-        return (await anext(self._r.request(Endpoint)))['ok']
+        return (await PostEndpoint(f'api/challenge/{challenge_id}/decline')(self._r)())['ok']
+
+
+class _Board(_BaseClient):
+    """Client for physical board or external application endpoints."""
+
+    def stream_incoming_events(self):
+        """Get your realtime stream of incoming events.
+
+        :return: stream of incoming events
+        """
+        return StreamEndpoint('api/stream/event')(self._r)()
+
+    async def seek(self, time, increment, rated=False, variant='standard',
+                   color='random', rating_range=None):
+        """Create a public seek to start a game with a random opponent.
+
+        :param int time: intial clock time in minutes
+        :param int increment: clock increment in minutes
+        :param bool rated: whether the game is rated (impacts ratings)
+        :param str variant: game variant to use
+        :param str color: color to play
+        :param rating_range: range of opponent ratings
+        :return: duration of the seek
+        :rtype: float
+        """
+        if isinstance(rating_range, (list, tuple)):
+            low, high = rating_range
+            rating_range = f'{low}-{high}'
+
+        payload = {
+            'rated': str(bool(rated)).lower(),
+            'time': time,
+            'increment': increment,
+            'variant': variant,
+            'color': color,
+            'ratingRange': rating_range or '',
+        }
+
+        # we time the seek
+        start = now()
+
+        # just keep reading to keep the search going
+        async for line in StreamPostEndpoint('api/board/seek', fmt=TEXT)(self._r)(data=payload)():
+            pass
+
+        # and return the time elapsed
+        return now() - start
+
+    def stream_game_state(self, game_id):
+        """Get the stream of events for a board game.
+
+        :param str game_id: ID of a game
+        :return: iterator over game states
+        """
+        return StreamEndpoint(f'api/board/game/stream/{game_id}',
+                              converter=models.GameState.convert)(self._r)()
+
+    async def make_move(self, game_id, move):
+        """Make a move in a board game.
+
+        :param str game_id: ID of a game
+        :param str move: move to make
+        :return: success
+        :rtype: bool
+        """
+        return (await PostEndpoint(f'api/board/game/{game_id}/move/{move}')(self._r)())['ok']
+
+    async def post_message(self, game_id, text, spectator=False):
+        """Post a message in a board game.
+
+        :param str game_id: ID of a game
+        :param str text: text of the message
+        :param bool spectator: post to spectator room (else player room)
+        :return: success
+        :rtype: bool
+        """
+        payload = {'room': 'spectator' if spectator else 'player', 'text': text}
+        return (await PostEndpoint(f'api/board/game/{game_id}/chat')(self._r)(json=payload))['ok']
+
+    async def abort_game(self, game_id):
+        """Abort a board game.
+
+        :param str game_id: ID of a game
+        :return: success
+        :rtype: bool
+        """
+        return (await PostEndpoint(f'api/board/game/{game_id}/abort')(self._r)())['ok']
+
+    async def resign_game(self, game_id):
+        """Resign a board game.
+
+        :param str game_id: ID of a game
+        :return: success
+        :rtype: bool
+        """
+        return (await PostEndpoint(f'api/board/game/{game_id}/resign')(self._r)())['ok']
+
+    async def handle_draw_offer(self, game_id, accept):
+        """Create, accept, or decline a draw offer.
+
+        To offer a draw, pass ``accept=True`` and a game ID of an in-progress
+        game. To response to a draw offer, pass either ``accept=True`` or
+        ``accept=False`` and the ID of a game in which you have recieved a
+        draw offer.
+
+        Often, it's easier to call :func:`offer_draw`, :func:`accept_draw`, or
+        :func:`decline_draw`.
+
+        :param str game_id: ID of an in-progress game
+        :param bool accept: whether to accept
+        :return: True if successful
+        :rtype: bool
+        """
+        return (await PostEndpoint(f'/api/board/game/{game_id}/draw/{"yes" if accept else "no"}')(
+            self._r)())['ok']
+
+    async def offer_draw(self, game_id):
+        """Offer a draw in the given game.
+
+        :param str game_id: ID of an in-progress game
+        :return: True if successful
+        :rtype: bool
+        """
+        return await self.handle_draw_offer(game_id, True)
+
+    async def accept_draw(self, game_id):
+        """Accept an already offered draw in the given game.
+
+        :param str game_id: ID of an in-progress game
+        :return: True if successful
+        :rtype: bool
+        """
+        return await self.handle_draw_offer(game_id, True)
+
+    async def decline_draw(self, game_id):
+        """Decline an already offered draw in the given game.
+
+        :param str game_id: ID of an in-progress game
+        :return: True if successful
+        :rtype: bool
+        """
+        return await self.handle_draw_offer(game_id, False)
+
+
+class _Bots(_BaseClient):
+    """Client for bot-related endpoints."""
+
+    async def stream_incoming_events(self):
+        """Get your realtime stream of incoming events.
+
+        :return: stream of incoming events
+        :rtype: iterator over the stream of events
+        """
+        return PostEndpoint('api/stream/event')(self._r)()
+
+    def stream_game_state(self, game_id):
+        """Get the stream of events for a bot game.
+
+        :param str game_id: ID of a game
+        :return: iterator over game states
+        """
+        return StreamEndpoint(f'api/bot/game/stream/{game_id}',
+                              converter=models.GameState.convert)(
+            self._r)()
+
+    async def make_move(self, game_id, move):
+        """Make a move in a bot game.
+
+        :param str game_id: ID of a game
+        :param str move: move to make
+        :return: success
+        :rtype: bool
+        """
+        return (await PostEndpoint(f'api/bot/game/{game_id}/move/{move}')(self._r)())['ok']
+
+    async def post_message(self, game_id, text, spectator=False):
+        """Post a message in a bot game.
+
+        :param str game_id: ID of a game
+        :param str text: text of the message
+        :param bool spectator: post to spectator room (else player room)
+        :return: success
+        :rtype: bool
+        """
+        payload = {'room': 'spectator' if spectator else 'player', 'text': text}
+        return (await PostEndpoint(f'api/bot/game/{game_id}/chat')(self._r)(json=payload))['ok']
+
+    async def abort_game(self, game_id):
+        """Abort a bot game.
+
+        :param str game_id: ID of a game
+        :return: success
+        :rtype: bool
+        """
+        return (await PostEndpoint(f'api/bot/game/{game_id}/abort')(self._r)())['ok']
+
+    async def resign_game(self, game_id):
+        """Resign a bot game.
+
+        :param str game_id: ID of a game
+        :return: success
+        :rtype: bool
+        """
+        return (await PostEndpoint(f'api/bot/game/{game_id}/resign')(self._r)())['ok']
+
+    async def accept_challenge(self, challenge_id):
+        """Accept an incoming challenge.
+
+        :param str challenge_id: ID of a challenge
+        :return: success
+        :rtype: bool
+        """
+        return (await PostEndpoint(f'api/challenge/{challenge_id}/accept')(self._r)())['ok']
+
+    async def decline_challenge(self, challenge_id):
+        """Decline an incoming challenge.
+
+        :param str challenge_id: ID of a challenge
+        :return: success
+        :rtype: bool
+        """
+        return (await PostEndpoint(f'api/challenge/{challenge_id}/decline')(self._r)())['ok']
+
+
+class _Tournaments(_OptionalPgnClient):
+    """Client for tournament-related endpoints."""
+
+    async def get(self):
+        """Get recently finished, ongoing, and upcoming tournaments.
+
+        :return: current tournaments
+        :rtype: list
+        """
+        return await Endpoint('api/tournament', converter=models.Tournament.convert_values)(
+            self._r)()
+
+    async def create(self, clock_time, clock_increment, minutes, name=None,
+                     wait_minutes=None, variant=None, berserkable=None, rated=None,
+                     start_date=None, position=None, password=None, conditions=None):
+        """Create a new tournament.
+
+        .. note::
+
+            ``wait_minutes`` is always relative to now and is overriden by
+            ``start_time``.
+
+        .. note::
+
+            If ``name`` is left blank then one is automatically created.
+
+        :param int clock_time: intial clock time in minutes
+        :param int clock_increment: clock increment in seconds
+        :param int minutes: length of the tournament in minutes
+        :param str name: tournament name
+        :param int wait_minutes: future start time in minutes
+        :param str start_date: when to start the tournament
+        :param str variant: variant to use if other than standard
+        :param bool rated: whether the game affects player ratings
+        :param str berserkable: whether players can use berserk
+        :param str position: custom initial position in FEN
+        :param str password: password (makes the tournament private)
+        :param dict conditions: conditions for participation
+        :return: created tournament info
+        :rtype: dict
+        """
+        payload = {
+            'name': name,
+            'clockTime': clock_time,
+            'clockIncrement': clock_increment,
+            'minutes': minutes,
+            'waitMinutes': wait_minutes,
+            'startDate': start_date,
+            'variant': variant,
+            'rated': rated,
+            'position': position,
+            'berserkable': berserkable,
+            'password': password,
+            **{f'conditions.{c}': v for c, v in (conditions or {}).items()},
+        }
+        return await PostEndpoint('api/tournament', converter=models.Tournament.convert)(self._r)(
+            json=payload)
+
+    async def export_games(self, id_, as_pgn=False, moves=None, tags=None,
+                           clocks=None, evals=None, opening=None):
+        """Export games from a tournament.
+
+        :param str id_: tournament ID
+        :param bool as_pgn: whether to return PGN instead of JSON
+        :param bool moves: include moves
+        :param bool tags: include tags
+        :param bool clocks: include clock comments in the PGN moves, when
+                            available
+        :param bool evals: include analysis evalulation comments in the PGN
+                           moves, when available
+        :param bool opening: include the opening name
+        :return: games
+        :rtype: list
+        """
+        params = {
+            'moves': moves,
+            'tags': tags,
+            'clocks': clocks,
+            'evals': evals,
+            'opening': opening,
+        }
+        fmt = PGN if self._use_pgn(as_pgn) else NDJSON
+        return await Endpoint(f'api/tournament/{id_}/games', fmt=fmt,
+                              converter=models.Game.convert)(
+            self._r)(params=params)
+
+    def stream_results(self, id_, limit=None):
+        """Stream the results of a tournament.
+
+        Results are the players of a tournament with their scores and
+        performance in rank order. Note that results for ongoing
+        tournaments can be inconsistent due to ranking changes.
+
+        :param str id_: tournament ID
+        :param int limit: maximum number of results to stream
+        :return: iterator over the stream of results
+        :rtype: iter
+        """
+        return StreamEndpoint(f'api/tournament/{id_}/results')(self._r)(params={'nb': limit})
+
+    def stream_by_creator(self, username):
+        """Stream the tournaments created by a player.
+
+        :param str username: username of the player
+        :return: tournaments
+        :rtype: iter
+        """
+        return StreamEndpoint(f'api/user/{username}/tournament/created')(self._r)()
+
+
+class _Broadcasts(_BaseClient):
+    """Broadcast of one or more games."""
+
+    async def create(self, name, description, sync_url=None, markdown=None,
+                     credit=None, starts_at=None, official=None, throttle=None):
+        """Create a new broadcast.
+
+        .. note::
+
+            ``sync_url`` must be publicly accessible. If not provided, you
+            must periodically push new PGN to update the broadcast manually.
+
+        :param str name: name of the broadcast
+        :param str description: short description
+        :param str markdown: long description
+        :param str sync_url: URL by which Lichess can poll for updates
+        :param str credit: short text to give credit to the source provider
+        :param int starts_at: start time as millis
+        :param bool official: DO NOT USE
+        :param int throttle: DO NOT USE
+        :return: created tournament info
+        :rtype: dict
+        """
+        payload = {
+            'name': name,
+            'description': description,
+            'syncUrl': sync_url,
+            'markdown': markdown,
+            'credit': credit,
+            'startsAt': starts_at,
+            'official': official,
+            'throttle': throttle,
+        }
+        return await PostEndpoint('broadcast/new', converter=models.Broadcast.convert)(self._r)(
+            json=payload)
+
+    async def get(self, broadcast_id, slug='-'):
+        """Get a broadcast by ID.
+
+        :param str broadcast_id: ID of a broadcast
+        :param str slug: slug for SEO
+        :return: broadcast information
+        :rtype: dict
+        """
+        return await Endpoint(f'broadcast/{slug}/{broadcast_id}',
+                              converter=models.Broadcast.convert)(self._r)()
+
+    async def update(self, broadcast_id, name, description, sync_url, markdown=None,
+                     credit=None, starts_at=None, official=None, throttle=None,
+                     slug='-'):
+        """Update an existing broadcast by ID.
+
+        .. note::
+
+            Provide all fields. Values in missing fields will be erased.
+
+        :param str broadcast_id: ID of a broadcast
+        :param str name: name of the broadcast
+        :param str description: short description
+        :param str sync_url: URL by which Lichess can poll for updates
+        :param str markdown: long description
+        :param str credit: short text to give credit to the source provider
+        :param int starts_at: start time as millis
+        :param bool official: DO NOT USE
+        :param int throttle: DO NOT USE
+        :param str slug: slug for SEO
+        :return: updated broadcast information
+        :rtype: dict
+        """
+        payload = {
+            'name': name,
+            'description': description,
+            'syncUrl': sync_url,
+            'markdown': markdown,
+            'credit': credit,
+            'startsAt': starts_at,
+            'official': official,
+
+        }
+        return PostEndpoint(f'broadcast/{slug}/{broadcast_id}',
+                            converter=models.Broadcast.convert)(
+            self._r)(json=payload)
+
+    async def push_pgn_update(self, broadcast_id, pgn_games, slug='-'):
+        """Manually update an existing broadcast by ID.
+
+        :param str broadcast_id: ID of a broadcast
+        :param list pgn_games: one or more games in PGN format
+        :return: success
+        :rtype: bool
+        """
+        games = '\n\n'.join(g.strip() for g in pgn_games)
+        return (await PostEndpoint(f'broadcast/{slug}/{broadcast_id}/push')(self._r)(data=games))[
+            'ok']
+
+
+class _Simuls(_BaseClient):
+    """Simultaneous exhibitions - one vs many."""
+
+    async def get(self):
+        """Get recently finished, ongoing, and upcoming simuls.
+
+        :return: current simuls
+        :rtype: list
+        """
+        return await Endpoint('api/simul')(self._r)()
+
+
+class _Studies(_BaseClient):
+    """Study chess the Lichess way."""
+
+    async def export_chapter(self, study_id, chapter_id):
+        """Export one chapter of a study.
+
+        :return: chapter
+        :rtype: PGN
+        """
+        return await Endpoint(f'/study/{study_id}/{chapter_id}.pgn', fmt=PGN)(self._r)()
+
+    def export(self, study_id):
+        """Export all chapters of a study.
+
+        :return: all chapters as PGN
+        :rtype: list
+        """
+        return StreamEndpoint(f'/study/{study_id}.pgn', fmt=PGN)(self._r)()
