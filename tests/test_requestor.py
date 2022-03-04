@@ -22,7 +22,7 @@ from simul.formats import PGN, LIJSON
 @pytest.mark.asyncio
 async def test_json(requestor, config):
     endpoint = Endpoint('api/account')
-    account = await requestor.request(endpoint)
+    account = await anext(requestor.request(endpoint))
     assert account['username'] == config['username']
 
 
@@ -32,7 +32,7 @@ async def test_post(requestor):
     users = ['user1', 'user2', 'simul']
     ep = Endpoint('api/users', method='POST', converter=models.User.convert,
                   content=','.join(users))
-    accounts = await requestor.request(ep)
+    accounts = await anext(requestor.request(ep))
     assert len(accounts) == len(users)
     for acc in accounts:
         assert acc['username'] in users
@@ -42,12 +42,12 @@ async def test_post(requestor):
 async def test_pgn(requestor):
     id = 'V8aUuLJq'
     ep = Endpoint(f'game/export/{id}', fmt=PGN)
-    game = await requestor.request(ep)
+    game = await anext(requestor.request(ep))
     assert "4. Nxf3 Nf6 5. Bc4 Bg4 6. Ne5 Bxd1" in game
 
 
 @pytest.mark.asyncio
 async def test_lijson(requestor):
     ep = Endpoint(f'player/top/10/blitz', fmt=LIJSON)
-    lb = await requestor.request(ep)
+    lb = await anext(requestor.request(ep))
     assert lb

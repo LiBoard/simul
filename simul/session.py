@@ -49,7 +49,9 @@ class Requestor:
         url = urllib.parse.urljoin(self.base_url, ep.path)
 
         if ep.stream:
-            pass
+            async with self.session.stream(ep.method, url, *ep.args, **ep.kwargs) as response:
+                async for line in response.aiter_lines():
+                    yield fmt.handle(response)
         else:
             response = await self.session.request(ep.method, url, *ep.args, **ep.kwargs)
-            return fmt.handle(response.text, ep.converter or utils.noop)
+            yield fmt.handle(response, ep.converter or utils.noop)

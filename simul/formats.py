@@ -15,6 +15,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import json
+
 from berserk import utils
 
 
@@ -33,46 +34,63 @@ class FormatHandler:
         self.mime_type = mime_type
         self.headers = {'Accept': mime_type}
 
-    def handle(self, content, converter=utils.noop):
+    def handle(self, response, converter=utils.noop):
         """Handle the response content by returning the data.
 
-        :param content: response content
+        :param response: response content
         :param func converter: function to handle field conversions
         :return: either all response data or an iterator of response data
         """
-        return converter(self.parse(content))
+        return converter(self.parse(response))
 
-    def parse(self, content):
+    def parse(self, response):
         """Parse all data from a response.
 
-        :param content: raw response
-        :type content: :class:`requests.Response`
+        :param response: raw response
+        :type response: :class:`requests.Response`
         :return: response data
         """
-        return content
+        return response.text
 
 
 class JsonHandler(FormatHandler):
     """Handle JSON data.
 
     :param str mime_type: the MIME type for the format
-    :param decoder: the decoder to use for the JSON format
-    :type decoder: :class:`json.JSONDecoder`
     """
 
     def __init__(self, mime_type):
         """Initialize a new JsonHandler."""
         super().__init__(mime_type=mime_type)
 
-    def parse(self, content):
+    def parse(self, response):
         """Parse all JSON data from a response.
 
-        :param content: raw response
-        :type content: :class:`requests.Response`
+        :param response: raw response
+        :type response: :class:`requests.Response`
         :return: response data
         :rtype: JSON
         """
-        return json.loads(content)
+        return response.json()
+
+
+class NdJsonHandler(FormatHandler):
+    """Handle ndjson data line by line.
+
+    :param str mime_type: the MIME type for the format
+    """
+
+    def __init__(self, mime_type):
+        """Initialize a new NdJsonHandler."""
+        super().__init__(mime_type=mime_type)
+
+    def parse(self, line):
+        """Parse the line.
+
+        :param line: A line of ndjson (aka a JSON object)
+        :return: parsed line
+        """
+        return json.loads(line)
 
 
 class PgnHandler(FormatHandler):
@@ -82,13 +100,13 @@ class PgnHandler(FormatHandler):
         """Initialize a new PgnHandler."""
         super().__init__(mime_type='application/x-chess-pgn')
 
-    def handle(self, content, converter=utils.noop):
+    def handle(self, response, *args, **kwargs):
         """Handle the response content by returning the data.
 
-        :param content: response content
+        :param response: response content
         :return: either all response data or an iterator of response data
         """
-        return super().handle(content, converter=utils.noop)
+        return super().handle(response, converter=utils.noop)
 
 
 class TextHandler(FormatHandler):
@@ -101,5 +119,6 @@ class TextHandler(FormatHandler):
 
 TEXT = TextHandler()
 JSON = JsonHandler(mime_type='application/json')
+NDJSON = NdJsonHandler(mime_type='application/x-ndjson')
 LIJSON = JsonHandler(mime_type='application/vnd.lichess.v3+json')
 PGN = PgnHandler()
