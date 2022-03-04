@@ -45,5 +45,4 @@ async def test_pgn(requestor):
 @pytest.mark.asyncio
 async def test_lijson(requestor):
     lb = await Endpoint(f'player/top/10/blitz', fmt=LIJSON)(requestor)()
-    print(lb)
     assert isinstance(lb['users'][0]['username'], str)

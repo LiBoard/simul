@@ -23,7 +23,6 @@ async def test_games_by_user(requestor, event_tag_re, game_id_re):
     ep = StreamEndpoint(f'api/games/user/user1', fmt=PGN)
     count = 0
     async for line in ep(requestor)():
-        print(line)
         if event_tag_re.match(line):
             count += 1
     assert count >= 10
@@ -31,6 +30,5 @@ async def test_games_by_user(requestor, event_tag_re, game_id_re):
     ep.fmt = NDJSON
     async for game in ep(requestor)():
         assert game_id_re.match(game['id'])
-        print(game['id'])
         count -= 1
     assert count == 0
