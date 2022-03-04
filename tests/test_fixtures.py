@@ -21,36 +21,38 @@ import pytest
 import pytest_asyncio
 from simul.session import Requestor
 from simul.session import TokenSession
+from simul.formats import JSON
 
 pytest_plugins = ('pytest_asyncio',)
 
 
 @pytest.fixture
-def config() -> dict:
+def config():
     c = ConfigParser()
     c.read(Path(__file__).parent / 'tests.ini')
     return c['DEFAULT']
 
 
 @pytest.fixture
-def api_token(config: ConfigParser) -> str:
+def api_token(config: ConfigParser):
     return config['token']
 
 
 @pytest_asyncio.fixture
-async def token_session(api_token: str) -> TokenSession:
+async def token_session(api_token: str):
     async with TokenSession(api_token) as ts:
         yield ts
 
 
 @pytest.fixture
 def requestor(token_session, config):
-    return Requestor(token_session, config['api_url'])
+    return Requestor(token_session, config['api_url'], JSON)
 
 
 @pytest.fixture
 def event_tag_re():
     return re.compile(r'^\[Event "[A-z ]+"]$')
+
 
 @pytest.fixture
 def game_id_re():
