@@ -17,7 +17,7 @@
 
 from .formats import FormatHandler
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, AsyncGenerator
 
 
 @dataclass
@@ -30,9 +30,41 @@ class Endpoint:
     fmt: FormatHandler = None
     converter: Callable = None
 
+    def __call__(self, requestor):
+        """Register a receptor."""
+
+        async def call(*args, **kwargs):
+            """For endpoints which return only a single element (stream=False)."""
+            return await anext(requestor.request(self, *args, **kwargs))
+
+        return call
+
 
 @dataclass
 class PostEndpoint(Endpoint):
     """API Endpoint accessed with POST."""
+
+    method: str = 'POST'
+
+
+@dataclass
+class StreamEndpoint(Endpoint):
+    """Represents an API endpoint with a streamed response."""
+
+    stream: bool = True
+
+    def __call__(self, requestor):
+        """Register a receptor."""
+
+        def call(*args, **kwargs) -> AsyncGenerator:
+            """For endpoint returning multiple lines that are parsed separately."""
+            return requestor.request(self, *args, **kwargs)
+
+        return call
+
+
+@dataclass
+class StreamPostEndpoint(StreamEndpoint):
+    """StreamEndpoint with method='POST'."""
 
     method: str = 'POST'

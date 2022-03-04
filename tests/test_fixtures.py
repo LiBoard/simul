@@ -51,7 +51,7 @@ def requestor(token_session, config):
 
 @pytest.fixture
 def event_tag_re():
-    return re.compile(r'^\[Event "[A-z ]+"]$')
+    return re.compile(r'^\[Event ".+"]$')
 
 
 @pytest.fixture

@@ -13,25 +13,23 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from berserk import models
 from test_fixtures import *
-from simul.endpoints import Endpoint
-from simul.formats import PGN, LIJSON
+from simul.endpoints import Endpoint, PostEndpoint
+from berserk import models
+from simul.formats import *
 
 
 @pytest.mark.asyncio
 async def test_json(requestor, config):
-    endpoint = Endpoint('api/account')
-    account = await anext(requestor.request(endpoint))
+    account = await Endpoint('api/account')(requestor)()
     assert account['username'] == config['username']
 
 
-# TODO load username/ids from data file
 @pytest.mark.asyncio
 async def test_post(requestor):
     users = ['user1', 'user2', 'simul']
-    ep = Endpoint('api/users', method='POST', converter=models.User.convert)
-    accounts = await anext(requestor.request(ep, content=','.join(users)))
+    accounts = await PostEndpoint('api/users', converter=models.User.convert)(requestor)(
+        content=','.join(users))
     assert len(accounts) == len(users)
     for acc in accounts:
         assert acc['username'] in users
@@ -40,13 +38,12 @@ async def test_post(requestor):
 @pytest.mark.asyncio
 async def test_pgn(requestor):
     game_id = 'V8aUuLJq'
-    ep = Endpoint(f'game/export/{game_id}', fmt=PGN)
-    game = await anext(requestor.request(ep))
+    game = await Endpoint(f'game/export/{game_id}', fmt=PGN)(requestor)()
     assert "4. Nxf3 Nf6 5. Bc4 Bg4 6. Ne5 Bxd1" in game
 
 
 @pytest.mark.asyncio
 async def test_lijson(requestor):
-    ep = Endpoint(f'player/top/10/blitz', fmt=LIJSON)
-    lb = await anext(requestor.request(ep))
+    lb = await Endpoint(f'player/top/10/blitz', fmt=LIJSON)(requestor)()
+    print(lb)
     assert isinstance(lb['users'][0]['username'], str)
