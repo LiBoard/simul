@@ -224,26 +224,6 @@ class _Users(_BaseClient):
         """
         return await Endpoint('streamer/live')(self._r)()
 
-    def get_users_followed(self, username):
-        """Stream users followed by a user.
-
-        :param str username: a username
-        :return: iterator over the users the given user follows
-        :rtype: iter
-        """
-        return StreamEndpoint(f'/api/user/{username}/following', fmt=NDJSON,
-                              converter=models.User.convert)(self._r)()
-
-    def get_users_following(self, username):
-        """Stream users who follow a user.
-
-        :param str username: a username
-        :return: iterator over the users that follow the given user
-        :rtype: iter
-        """
-        return StreamEndpoint(f'/api/user/{username}/followers', fmt=NDJSON,
-                              converter=models.User.convert)(self._r)()
-
     async def get_rating_history(self, username):
         """Get the rating history of a user.
 
