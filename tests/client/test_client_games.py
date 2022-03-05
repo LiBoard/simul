@@ -17,18 +17,22 @@ from ..test_fixtures import *
 
 
 @pytest.mark.asyncio
-async def test_members(client, data):
-    team = data['tests']['team']
-    members = {m['username'] async for m in client.teams.get_members(team['id'])}
-    assert set(team['members']) == members
+async def test_export(client, data):
+    game = data['tests']['game']
+    assert game['moves'] == (await client.games.export(game['id']))['moves']
+    assert game['pgn'] == await client.games.export(game['id'], as_pgn=True)
 
 
 @pytest.mark.asyncio
-async def test_join_leave(client, data, api_user):
-    team = data['tests']['team']
-    assert (await client.teams.join(team['id'])) is True
-    assert api_user in {m['username'] async for m in client.teams.get_members(team['id'])}
-    assert (await client.teams.leave(team['id'])) is True
-    assert api_user not in {m['username'] async for m in client.teams.get_members(team['id'])}
+async def test_multi(client, data, game_id_re):
+    # by player
+    u = data['tests']['public-data']
+    by_player_ids = [g['id'] async for g in client.games.export_by_player(u)]
+    assert by_player_ids  # not empty
+    assert all(game_id_re.match(g) for g in by_player_ids)
 
-# TODO test kick
+    # by id
+    multi = [g['id'] async for g in client.games.export_multi(*by_player_ids)]
+    assert set(multi) == set(by_player_ids)
+
+# TODO
