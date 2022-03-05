@@ -17,15 +17,15 @@ from ..test_fixtures import *
 
 
 @pytest.mark.asyncio
-async def test_get(client, config):
+async def test_get(client, api_user):
     acc = await client.account.get()
-    assert acc['username'] == config['username']
+    assert acc['username'] == api_user
 
 
 @pytest.mark.asyncio
-async def test_email(client):
+async def test_email(client, api_email):
     email = await client.account.get_email()
-    assert email == 'simul@example.com'
+    assert email == api_email
 
 
 @pytest.mark.asyncio

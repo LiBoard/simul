@@ -14,39 +14,51 @@
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from simul import models
+from simul.endpoints import Endpoint, PostEndpoint, StreamEndpoint
+from simul.formats import PGN, LIJSON, NDJSON
 from tests.test_fixtures import *
-from simul.endpoints import Endpoint
-from simul.formats import PGN, LIJSON
 
 
 @pytest.mark.asyncio
-async def test_json(requestor, config):
-    endpoint = Endpoint('api/account')
-    account = await anext(requestor.request(endpoint))
-    assert account['username'] == config['username']
+async def test_json(requestor, api_user):
+    account = await anext(requestor.request(Endpoint('api/account')))
+    assert account['username'] == api_user
 
 
-# TODO load username/ids from data file
 @pytest.mark.asyncio
-async def test_post(requestor):
-    users = ['user1', 'user2', 'simul']
-    ep = Endpoint('api/users', method='POST', converter=models.User.convert)
+async def test_post(requestor, data):
+    users = set(data['tests']['users'])
+    ep = PostEndpoint('api/users', converter=models.User.convert)
     accounts = await anext(requestor.request(ep, content=','.join(users)))
     assert len(accounts) == len(users)
-    for acc in accounts:
-        assert acc['username'] in users
+    assert users == {acc['username'] for acc in accounts}
 
 
 @pytest.mark.asyncio
-async def test_pgn(requestor):
-    game_id = 'V8aUuLJq'
-    ep = Endpoint(f'game/export/{game_id}', fmt=PGN)
-    game = await anext(requestor.request(ep))
-    assert "4. Nxf3 Nf6 5. Bc4 Bg4 6. Ne5 Bxd1" in game
+async def test_pgn(requestor, data):
+    game = data['tests']['game']
+    exported = await anext(requestor.request(Endpoint(f'game/export/{game["id"]}', fmt=PGN)))
+    assert game['pgn-contains'] in exported
 
 
 @pytest.mark.asyncio
 async def test_lijson(requestor):
-    ep = Endpoint(f'player/top/10/blitz', fmt=LIJSON)
-    lb = await anext(requestor.request(ep))
+    lb = await anext(requestor.request(Endpoint(f'player/top/10/blitz', fmt=LIJSON)))
     assert isinstance(lb['users'][0]['username'], str)
+
+
+@pytest.mark.asyncio
+async def test_games_by_user(requestor, data, event_tag_re):
+    conf = data['tests']['games-by-user']
+    ep = StreamEndpoint(f'api/games/user/{conf["user"]}', fmt=PGN)
+    lines = [line async for line in requestor.request(ep) if event_tag_re.match(line)]
+    assert len(lines) >= conf['min-number']
+
+
+@pytest.mark.asyncio
+async def test_games_by_user_ndjson(requestor, data, game_id_re):
+    conf = data['tests']['games-by-user']
+    ep = StreamEndpoint(f'api/games/user/{conf["user"]}', fmt=NDJSON)
+    games = [game async for game in requestor.request(ep)]
+    assert len(games) >= conf['min-number']
+    assert all(game_id_re.match(game['id']) for game in games)

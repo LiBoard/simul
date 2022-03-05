@@ -17,25 +17,16 @@ from ..test_fixtures import *
 
 
 @pytest.mark.asyncio
-async def test_members(client):
-    c = 0
-    async for m in client.teams.get_members('simul-test'):
-        c += 1
-    assert c >= 1
+async def test_members(client, data):
+    team = data['tests']['team']
+    members = {m['username'] async for m in client.teams.get_members(team['id'])}
+    assert set(team['members']) == members
 
 
 @pytest.mark.asyncio
-async def test_join(client):
-    await client.teams.join('simul-test')
-    success = False
-    async for m in client.teams.get_members('simul-test'):
-        if m['username'] == 'simul':
-            success = True
-            break
-    assert success
-    await client.teams.leave('simul-test')
-    async for m in client.teams.get_members('simul-test'):
-        if m['username'] == 'simul':
-            success = False
-            break
-    assert success
+async def test_join(client, data, api_user):
+    team = data['tests']['team']
+    assert (await client.teams.join(team['id'])) is True
+    assert api_user in {m['username'] async for m in client.teams.get_members(team['id'])}
+    assert (await client.teams.leave(team['id'])) is True
+    assert api_user not in {m['username'] async for m in client.teams.get_members(team['id'])}

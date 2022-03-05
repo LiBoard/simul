@@ -18,17 +18,13 @@ from ..test_fixtures import *
 
 @pytest.mark.asyncio
 async def test_puzzle_activity(client):
-    c = 0
-    async for i in client.users.get_puzzle_activity(10):
-        c += 1
-    assert c >= 5
+    assert len([i async for i in client.users.get_puzzle_activity(10)]) >= 5
 
 
 @pytest.mark.asyncio
-async def test_realtime_status(client):
-    users = ['user1', 'user2', 'simul']
-    for i in await client.users.get_realtime_statuses(*users):
-        assert i['id']
+async def test_realtime_status(client, data):
+    for i in await client.users.get_realtime_statuses(*data['tests']['users']):
+        assert isinstance(i['id'], str)
 
 
 @pytest.mark.asyncio
@@ -38,33 +34,37 @@ async def test_top_10(client):
 
 @pytest.mark.asyncio
 async def test_leaderboard(client):
-    assert (await client.users.get_leaderboard('blitz', 10))[0]['username']
+    assert isinstance((await client.users.get_leaderboard('blitz', 10))[0]['username'], str)
 
 
 @pytest.mark.asyncio
-async def test_public_data(client):
-    assert (await client.users.get_public_data('user1'))['username'] == 'user1'
+async def test_public_data(client, data):
+    u = data['tests']['public-data']
+    assert (await client.users.get_public_data(u))['username'] == u
 
 
 @pytest.mark.asyncio
-async def test_activity_feed(client):
-    assert (await client.users.get_activity_feed('user1'))[0]['interval']
+async def test_activity_feed(client, data):
+    u = data['tests']['public-data']
+    assert isinstance((await client.users.get_activity_feed(u))[0]['interval'], dict)
 
 
 @pytest.mark.asyncio
-async def test_by_id(client):
-    users = ['user1', 'user2', 'simul']
-    for u in await client.users.get_by_id(*users):
-        assert u['username'] in users
+async def test_by_id(client, data):
+    users = set(data['tests']['users'])
+    assert users == {u['username'] for u in await client.users.get_by_id(*users)}
 
 
 @pytest.mark.asyncio
 async def test_live_streamers(client):
-    assert len(await client.users.get_live_streamers()) == 0
+    live = await client.users.get_live_streamers()
+    assert len(live) == 0
+    assert isinstance(live, list)
 
 
 @pytest.mark.asyncio
-async def test_rating_history(client):
-    hist = await client.users.get_rating_history('user1')
-    for perf in hist:
-        assert 'points' in perf
+async def test_rating_history(client, data):
+    u = data['tests']['public-data']
+    hist = await client.users.get_rating_history(u)
+    assert isinstance(hist, list)
+    assert all('points' in perf for perf in hist)
