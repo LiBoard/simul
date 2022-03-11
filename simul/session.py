@@ -27,9 +27,9 @@ from .formats import FormatHandler
 class TokenSession(AsyncClient):
     """An AsyncClient using token authentication."""
 
-    def __init__(self, token: str):
-        """Intialize a new TokenSession."""
-        super().__init__()
+    def __init__(self, token: str, *args, **kwargs):
+        """Initialize a new TokenSession."""
+        super().__init__(*args, **kwargs)
         self.token = token
         self.headers['Authorization'] = f'Bearer {token}'
 
