@@ -12,8 +12,12 @@
 #
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+import pytest
+from httpx import ReadTimeout
 
 from ..test_fixtures import *
+from simul.utils import DEFAULT_TIMEOUT, NO_READ_TIMEOUT
+from asyncio import create_task, sleep
 
 
 @pytest.mark.asyncio
@@ -35,4 +39,33 @@ async def test_multi(client, data, game_id_re):
     multi = [g['id'] async for g in client.games.export_multi(*by_player_ids)]
     assert set(multi) == set(by_player_ids)
 
-# TODO
+
+@pytest.mark.asyncio
+async def test_among(client, data):
+    try:
+        users = data['tests']['users']
+
+        async def stream():
+            async for g in client.games.get_among_players(*users):
+                return g
+
+        task = create_task(stream())
+        await sleep(0.3)
+        assert not task.done()
+        task.cancel()
+        await sleep(1)
+    except RuntimeError:
+        pass
+
+
+@pytest.mark.asyncio
+async def test_ongoing(client):
+    games = await client.games.get_ongoing()
+    assert isinstance(games, list)
+    assert len(games) == 0
+
+
+@pytest.mark.asyncio
+async def test_tv_channels(client):
+    channels = await client.games.get_tv_channels()
+    assert isinstance(channels, dict)

@@ -413,7 +413,7 @@ class _Games(_OptionalPgnClient):
         :return: best ongoing games in each speed and variant
         :rtype: dict
         """
-        return await Endpoint('tv/channels')(self._r)()
+        return await Endpoint('api/tv/channels')(self._r)()
 
 
 class _Challenges(_BaseClient):
