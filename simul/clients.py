@@ -574,15 +574,15 @@ class _Challenges(_BaseClient):
 class _Board(_BaseClient):
     """Client for physical board or external application endpoints."""
 
-    def stream_incoming_events(self):
+    def stream_incoming_events(self, timeout=NO_READ_TIMEOUT):
         """Get your realtime stream of incoming events.
 
         :return: stream of incoming events
         """
-        return StreamEndpoint('api/stream/event')(self._r)()
+        return StreamEndpoint('api/stream/event')(self._r)(timeout=timeout)
 
     async def seek(self, time, increment, rated=False, variant='standard',
-                   color='random', rating_range=None):
+                   color='random', rating_range=None, timeout=NO_READ_TIMEOUT):
         """Create a public seek to start a game with a random opponent.
 
         :param int time: intial clock time in minutes
@@ -591,6 +591,7 @@ class _Board(_BaseClient):
         :param str variant: game variant to use
         :param str color: color to play
         :param rating_range: range of opponent ratings
+        :param timeout: Optional Timeout
         :return: duration of the seek
         :rtype: float
         """
@@ -611,20 +612,22 @@ class _Board(_BaseClient):
         start = now()
 
         # just keep reading to keep the search going
-        async for line in StreamPostEndpoint('api/board/seek', fmt=TEXT)(self._r)(data=payload)():
+        async for line in StreamPostEndpoint('api/board/seek', fmt=TEXT)(self._r)(data=payload)(
+                timeout=timeout):
             pass
 
         # and return the time elapsed
         return now() - start
 
-    def stream_game_state(self, game_id):
+    def stream_game_state(self, game_id, timeout=NO_READ_TIMEOUT):
         """Get the stream of events for a board game.
 
         :param str game_id: ID of a game
+        :param timeout: Optional Timeout
         :return: iterator over game states
         """
         return StreamEndpoint(f'api/board/game/stream/{game_id}',
-                              converter=models.GameState.convert)(self._r)()
+                              converter=models.GameState.convert)(self._r)(timeout=timeout)
 
     async def make_move(self, game_id, move):
         """Make a move in a board game.
