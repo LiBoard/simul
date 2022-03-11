@@ -15,12 +15,14 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from time import time as now
-from simul.session import Requestor
-from simul.formats import TEXT, PGN, JSON, LIJSON, NDJSON
-from simul.endpoints import Endpoint, PostEndpoint, StreamEndpoint, StreamPostEndpoint
-from simul import models
 from httpx import AsyncClient
+from time import time as now
+
+from simul import models
+from simul.endpoints import Endpoint, PostEndpoint, StreamEndpoint, StreamPostEndpoint
+from simul.formats import TEXT, PGN, JSON, LIJSON, NDJSON
+from simul.session import Requestor
+from simul.utils import NO_READ_TIMEOUT
 
 API_URL = 'https://lichess.org/'
 
@@ -379,18 +381,20 @@ class _Games(_OptionalPgnClient):
                                   converter=models.Game.convert)(self._r)(params=params,
                                                                           content=payload)
 
-    def get_among_players(self, *usernames):
+    def get_among_players(self, *usernames, timeout=NO_READ_TIMEOUT):
         """Get the games currently being played among players.
 
         Note this will not includes games where only one player is in the given
         list of usernames.
 
         :param usernames: two or more usernames
+        :param timeout: optional Timeout
         :return: iterator over all games played among the given players
         """
         payload = ','.join(usernames)
         return StreamPostEndpoint('api/stream/games-by-users', fmt=NDJSON,
-                                  converter=models.Game.convert)(self._r)(content=payload)
+                                  converter=models.Game.convert)(self._r)(content=payload,
+                                                                          timeout=timeout)
 
     # move this to Account?
     async def get_ongoing(self, count=10):
