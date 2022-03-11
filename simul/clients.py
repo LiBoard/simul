@@ -561,6 +561,15 @@ class _Challenges(_BaseClient):
         """
         return (await PostEndpoint(f'api/challenge/{challenge_id}/decline')(self._r)())['ok']
 
+    async def cancel(self, challenge_id):
+        """Cancel a challenge.
+
+        :param str challenge_id: id of the challenge to cancel
+        :return: success indicator
+        :rtype: bool
+        """
+        return (await PostEndpoint(f'api/challenge/{challenge_id}/cancel')(self._r)())['ok']
+
 
 class _Board(_BaseClient):
     """Client for physical board or external application endpoints."""

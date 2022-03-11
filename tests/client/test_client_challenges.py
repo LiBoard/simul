@@ -17,18 +17,12 @@ from ..test_fixtures import *
 
 
 @pytest.mark.asyncio
-async def test_members(client, data):
-    team = data['tests']['team']
-    members = {m['username'] async for m in client.teams.get_members(team['id'])}
-    assert set(team['members']) == members
+async def test_create_cancel(client, data, game_id_re):
+    opponent = data['tests']['public-data']
+    challenge = (await client.challenges.create(opponent, True))['challenge']
+    print(challenge)
+    assert challenge['rated'] is True
+    assert game_id_re.match(challenge['id'])
+    assert await client.challenges.cancel(challenge['id']) is True
 
-
-@pytest.mark.asyncio
-async def test_join_leave(client, data, api_user):
-    team = data['tests']['team']
-    assert (await client.teams.join(team['id'])) is True
-    assert api_user in {m['username'] async for m in client.teams.get_members(team['id'])}
-    assert (await client.teams.leave(team['id'])) is True
-    assert api_user not in {m['username'] async for m in client.teams.get_members(team['id'])}
-
-# TODO kick_member
+# TODO create_with_accept, create_ai, accept, decline

@@ -41,4 +41,4 @@ async def test_kid_mode(client):
     assert (await client.account.set_kid_mode(False)) is True
     assert (await client.account.get_kid_mode()) is False
 
-# TODO test bot upgrade
+# TODO upgrade_to_bot
