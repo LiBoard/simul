@@ -1,3 +1,5 @@
+"""Utility funcions and constants for simul."""
+
 #  Copyright (C) 2022  Philipp Leclercq
 #
 #  This program is free software: you can redistribute it and/or modify
@@ -16,6 +18,8 @@
 from datetime import datetime
 from datetime import timezone
 import collections
+
+import httpx
 
 
 def to_millis(dt):
@@ -67,10 +71,13 @@ _RatingHistoryEntry = collections.namedtuple('Entry', 'year month day rating')
 
 
 def rating_history(data):
+    """Make a _RatingHistoryEntry out of data."""
     return _RatingHistoryEntry(*data)
 
 
 def inner(func, *keys):
+    """Return a function applying func to certain dict items."""
+
     def convert(data):
         for k in keys:
             try:
@@ -83,6 +90,8 @@ def inner(func, *keys):
 
 
 def listing(func):
+    """Return a function applying func to each item in a list."""
+
     def convert(items):
         result = []
         for item in items:
@@ -93,6 +102,7 @@ def listing(func):
 
 
 def noop(arg):
+    """Return arg. Used when a function is required as a param, by no operation is desired."""
     return arg
 
 
@@ -150,3 +160,7 @@ def build_adapter(mapper, sep='.'):
         return result
 
     return adapter
+
+
+DEFAULT_TIMEOUT = httpx.Timeout(5.0)
+NO_READ_TIMEOUT = httpx.Timeout(5.0, read=None)
